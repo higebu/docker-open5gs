@@ -1,0 +1,350 @@
+version: '3'
+
+services:
+  mongodb:
+    image: mongo:4
+    container_name: open5gs-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb:/data/db
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.2
+    healthcheck:
+      test: mongo --eval "db.adminCommand('ping')" || exit 1
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  webui:
+    image: higebu/open5gs-webui
+    container_name: open5gs-webui
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DB_URI: mongodb://mongodb/open5gs
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.3
+    healthcheck:
+      test: "ss -tnlp | grep :3000 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-nrf:
+    image: higebu/open5gs
+    container_name: open5gs-nrf
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: /usr/local/bin/open5gs-nrfd -c /config/nrf.yml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.4
+    healthcheck:
+      test: "ss -tnlp | grep :80 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-nssf:
+    image: higebu/open5gs
+    container_name: open5gs-nssf
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: /usr/local/bin/open5gs-nssfd -c /config/nssf.yml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.5
+    healthcheck:
+      test: "ss -tnlp | grep :80 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-amf:
+    image: higebu/open5gs
+    container_name: open5gs-amf
+    depends_on:
+      open5gs-nrf:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: /usr/local/bin/open5gs-amfd -c /config/amf.yml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.6
+    healthcheck:
+      test: "ss -tnlp | grep :80 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-ausf:
+    image: higebu/open5gs
+    container_name: open5gs-ausf
+    depends_on:
+      open5gs-nrf:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: /usr/local/bin/open5gs-ausfd -c /config/ausf.yml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.7
+    healthcheck:
+      test: "ss -tnlp | grep :80 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-pcf:
+    image: higebu/open5gs
+    container_name: open5gs-pcf
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      open5gs-nrf:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: /usr/local/bin/open5gs-pcfd -c /config/pcf.yml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.8
+    healthcheck:
+      test: "ss -tnlp | grep :80 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-smf:
+    image: higebu/open5gs
+    container_name: open5gs-smf
+    depends_on:
+      open5gs-nrf:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: /usr/local/bin/open5gs-smfd -c /config/smf.yml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.9
+    healthcheck:
+      test: "ss -tnlp | grep :80 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-bsf:
+    image: higebu/open5gs
+    container_name: open5gs-bsf
+    depends_on:
+      open5gs-nrf:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: /usr/local/bin/open5gs-bsfd -c /config/bsf.yml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.10
+    healthcheck:
+      test: "ss -tnlp | grep :80 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-upf:
+    image: higebu/open5gs
+    container_name: open5gs-upf
+    depends_on:
+      open5gs-nrf:
+        condition: service_healthy
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - "/dev/net/tun:/dev/net/tun"
+    sysctls:
+      net.ipv4.ip_forward: 1
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: bash -c "/config/setup.sh && /usr/local/bin/open5gs-upfd -c /config/upf.yml"
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.11
+    healthcheck:
+      test: "ss -unlp | grep :8805 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-udm:
+    image: higebu/open5gs
+    container_name: open5gs-udm
+    depends_on:
+      open5gs-nrf:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: /usr/local/bin/open5gs-udmd -c /config/udm.yml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.12
+    healthcheck:
+      test: "ss -tnlp | grep :80 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  open5gs-udr:
+    image: higebu/open5gs
+    container_name: open5gs-udr
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      open5gs-nrf:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /config
+    command: /usr/local/bin/open5gs-udrd -c /config/udr.yml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.13
+    healthcheck:
+      test: "ss -tnlp | grep :80 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  ueransim-gnb:
+    image: higebu/ueransim
+    container_name: ueransim-gnb
+    depends_on:
+      open5gs-nrf:
+        condition: service_healthy
+      open5gs-nssf:
+        condition: service_healthy
+      open5gs-amf:
+        condition: service_healthy
+      open5gs-ausf:
+        condition: service_healthy
+      open5gs-pcf:
+        condition: service_healthy
+      open5gs-nrf:
+        condition: service_healthy
+      open5gs-smf:
+        condition: service_healthy
+      open5gs-bsf:
+        condition: service_healthy
+      open5gs-udm:
+        condition: service_healthy
+      open5gs-udr:
+        condition: service_healthy
+      open5gs-upf:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./ueransim
+        target: /config
+    command: /UERANSIM/build/nr-gnb -c /config/gnb.yaml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.14
+    healthcheck:
+      test: "ss -unlp | grep :2152 || exit 1"
+      interval: 1s
+      timeout: 10s
+      retries: 10
+
+  ueransim-ue:
+    image: higebu/ueransim
+    container_name: ueransim-ue
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - "/dev/net/tun:/dev/net/tun"
+    depends_on:
+      open5gs-nrf:
+        condition: service_healthy
+      open5gs-amf:
+        condition: service_healthy
+      open5gs-ausf:
+        condition: service_healthy
+      open5gs-pcf:
+        condition: service_healthy
+      open5gs-nrf:
+        condition: service_healthy
+      open5gs-nssf:
+        condition: service_healthy
+      open5gs-smf:
+        condition: service_healthy
+      open5gs-bsf:
+        condition: service_healthy
+      open5gs-udm:
+        condition: service_healthy
+      open5gs-udr:
+        condition: service_healthy
+      open5gs-upf:
+        condition: service_healthy
+      open5gs-init:
+        condition: service_completed_successfully
+      ueransim-gnb:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./ueransim
+        target: /config
+    command: /UERANSIM/build/nr-ue -c /config/ue.yaml
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.15
+
+  open5gs-init:
+    image: mongo:4
+    container_name: open5gs-init
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./open5gs
+        target: /open5gs
+    command: /open5gs/create_sub.sh
+    networks:
+      5gc:
+        ipv4_address: 10.0.0.16
+
+volumes:
+  mongodb: {}
+  home: {}
+
+networks:
+  5gc:
+    ipam:
+      driver: default
+      config:
+        - subnet: "10.0.0.0/24"

@@ -1,0 +1,5 @@
+logger:
+  level: debug
+nrf:
+  sbi:
+    name: open5gs-nrf

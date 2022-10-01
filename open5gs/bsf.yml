@@ -1,0 +1,8 @@
+logger:
+  level: debug
+bsf:
+  sbi:
+    - name: open5gs-bsf
+nrf:
+  sbi:
+    name: open5gs-nrf

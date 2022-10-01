@@ -1,0 +1,9 @@
+logger:
+  level: debug
+udm:
+  sbi:
+    - name: open5gs-udm
+      advertise: open5gs-udm
+nrf:
+  sbi:
+    - name: open5gs-nrf

@@ -1,0 +1,9 @@
+logger:
+  level: debug
+upf:
+  pfcp:
+    - name: open5gs-upf
+  gtpu:
+    - name: open5gs-upf
+  subnet:
+    - addr: 10.45.0.1/16

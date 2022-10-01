@@ -1,0 +1,10 @@
+logger:
+  level: debug
+db_uri: mongodb://mongodb/open5gs
+udr:
+  sbi:
+    - name: open5gs-udr
+      advertise: open5gs-udr
+nrf:
+  sbi:
+    - name: open5gs-nrf
