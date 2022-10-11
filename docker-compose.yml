@@ -254,8 +254,6 @@ services:
         condition: service_healthy
       open5gs-pcf:
         condition: service_healthy
-      open5gs-nrf:
-        condition: service_healthy
       open5gs-smf:
         condition: service_healthy
       open5gs-bsf:
@@ -295,8 +293,6 @@ services:
       open5gs-ausf:
         condition: service_healthy
       open5gs-pcf:
-        condition: service_healthy
-      open5gs-nrf:
         condition: service_healthy
       open5gs-nssf:
         condition: service_healthy
