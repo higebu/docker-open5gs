@@ -11,55 +11,139 @@ on:
       - 'README.md'
       - 'docker-compose.yml'
 
+permissions:
+  contents: read
+
 jobs:
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      open5gs: ${{ steps.resolve.outputs.open5gs }}
+      ueransim: ${{ steps.resolve.outputs.ueransim }}
+      changed: ${{ steps.resolve.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve upstream release tags
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          latest() {
+            git ls-remote --tags --refs "$1" \
+              | awk -F'refs/tags/' '{print $2}' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              | sort -V | tail -1
+          }
+
+          open5gs=$(latest https://github.com/open5gs/open5gs.git)
+          ueransim=$(latest https://github.com/aligungr/UERANSIM.git)
+          pinned_open5gs=$(grep -m1 '^ARG OPEN5GS_VERSION=' open5gs/Dockerfile | cut -d= -f2)
+          pinned_ueransim=$(grep -m1 '^ARG UERANSIM_VERSION=' ueransim/Dockerfile | cut -d= -f2)
+
+          changed=false
+          if [ "$open5gs" != "$pinned_open5gs" ]; then changed=true; fi
+          if [ "$ueransim" != "$pinned_ueransim" ]; then changed=true; fi
+
+          echo "open5gs: $pinned_open5gs -> $open5gs"
+          echo "ueransim: $pinned_ueransim -> $ueransim"
+          echo "changed: $changed"
+
+          {
+            echo "open5gs=$open5gs"
+            echo "ueransim=$ueransim"
+            echo "changed=$changed"
+          } >> "$GITHUB_OUTPUT"
+
   docker:
+    needs: versions
+    if: ${{ needs.versions.outputs.changed == 'true' || github.event_name != 'schedule' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        images: [
-          {name: 'open5gs', url: 'https://api.github.com/repos/open5gs/open5gs/git/refs/heads/main'},
-          {name: 'open5gs-webui', url: 'https://api.github.com/repos/open5gs/open5gs/git/refs/heads/main'},
-          {name: 'ueransim', url: 'https://api.github.com/repos/aligungr/UERANSIM/git/refs/heads/master'},
-        ]
-    permissions:
-      contents: read
-      packages: write
+        include:
+          - name: open5gs
+            build_arg: OPEN5GS_VERSION
+            version: ${{ needs.versions.outputs.open5gs }}
+          - name: open5gs-webui
+            build_arg: OPEN5GS_VERSION
+            version: ${{ needs.versions.outputs.open5gs }}
+          - name: ueransim
+            build_arg: UERANSIM_VERSION
+            version: ${{ needs.versions.outputs.ueransim }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Get sha
-        id: get_sha
-        run: |
-          sha=$(curl -s ${{ matrix.images.url }} | jq -r .object.sha)
-          echo "sha: $sha"
-          echo "::set-output name=sha::$sha"
+      - uses: actions/checkout@v4
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
-            higebu/${{ matrix.images.name }}
+            higebu/${{ matrix.name }}
           flavor: |
             latest=true
           tags: |
-            type=schedule
-            type=raw,value=sha-${{ steps.get_sha.outputs.sha }}
+            type=raw,value=${{ matrix.version }}
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push Docker image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
-          context: ./${{ matrix.images.name }}
+          context: ./${{ matrix.name }}
+          build-args: |
+            ${{ matrix.build_arg }}=${{ matrix.version }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  bump:
+    needs: [versions, docker]
+    if: ${{ !failure() && !cancelled() && github.ref == 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin new upstream versions, or keep the schedule alive
+        env:
+          OPEN5GS: ${{ needs.versions.outputs.open5gs }}
+          UERANSIM: ${{ needs.versions.outputs.ueransim }}
+          CHANGED: ${{ needs.versions.outputs.changed }}
+        run: |
+          set -euo pipefail
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          if [ "$CHANGED" = 'true' ]; then
+            sed -i "s|^ARG OPEN5GS_VERSION=.*|ARG OPEN5GS_VERSION=${OPEN5GS}|" \
+              open5gs/Dockerfile open5gs-webui/Dockerfile
+            sed -i "s|^ARG UERANSIM_VERSION=.*|ARG UERANSIM_VERSION=${UERANSIM}|" \
+              ueransim/Dockerfile
+            git add open5gs/Dockerfile open5gs-webui/Dockerfile ueransim/Dockerfile
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: pin open5gs ${OPEN5GS} / UERANSIM ${UERANSIM}"
+              git push
+            fi
+            exit 0
+          fi
+
+          # GitHub disables a public repository's scheduled workflows after 60
+          # days without activity, and upstream releases can be over 8 months
+          # apart, so upstream alone cannot keep this workflow enabled.
+          idle_days=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          if [ "$idle_days" -ge 50 ]; then
+            git commit --allow-empty -m 'chore: keep the scheduled build alive'
+            git push
+          else
+            echo "last commit was ${idle_days} days ago; nothing to do"
+          fi
