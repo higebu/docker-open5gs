@@ -2,14 +2,19 @@ logger:
   level: debug
 amf:
   sbi:
-    - name: open5gs-amf
-      advertise: open5gs-amf
+    server:
+      - address: 10.0.0.6
+        port: 80
+    client:
+      nrf:
+        - uri: http://10.0.0.4:80
   ngap:
-    addr: 0.0.0.0
-    port: 38412
+    server:
+      - address: 10.0.0.6
   metrics:
-      addr: 0.0.0.0
-      port: 9090
+    server:
+      - address: 10.0.0.6
+        port: 9090
   guami:
     - plmn_id:
         mcc: 001
@@ -21,7 +26,7 @@ amf:
     - plmn_id:
         mcc: 001
         mnc: 01
-      tac: [1]
+      tac: 1
   plmn_support:
     - plmn_id:
         mcc: 001
@@ -35,6 +40,6 @@ amf:
       full: Open5GS
       short: Next
   amf_name: open5gs-amf
-nrf:
-  sbi:
-    - name: open5gs-nrf
+  time:
+    t3512:
+      value: 540

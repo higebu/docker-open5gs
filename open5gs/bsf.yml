@@ -2,7 +2,9 @@ logger:
   level: debug
 bsf:
   sbi:
-    - name: open5gs-bsf
-nrf:
-  sbi:
-    name: open5gs-nrf
+    server:
+      - address: 10.0.0.10
+        port: 80
+    client:
+      nrf:
+        - uri: http://10.0.0.4:80

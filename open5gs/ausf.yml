@@ -2,8 +2,9 @@ logger:
   level: debug
 ausf:
   sbi:
-    - name: open5gs-ausf
-      advertise: open5gs-ausf
-nrf:
-  sbi:
-    - name: open5gs-nrf
+    server:
+      - address: 10.0.0.7
+        port: 80
+    client:
+      nrf:
+        - uri: http://10.0.0.4:80
