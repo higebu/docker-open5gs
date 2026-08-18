@@ -1,4 +1,4 @@
-FROM node:carbon
+FROM node:19
 
 WORKDIR /usr/src/
 ADD https://api.github.com/repos/open5gs/open5gs/git/refs/heads/main version.json

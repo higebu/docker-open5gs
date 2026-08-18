@@ -24,14 +24,14 @@ services:
       mongodb:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "9999:9999"
     environment:
       DB_URI: mongodb://mongodb/open5gs
     networks:
       5gc:
         ipv4_address: 10.0.0.3
     healthcheck:
-      test: "ss -tnlp | grep :3000 || exit 1"
+      test: "ss -tnlp | grep :9999 || exit 1"
       interval: 1s
       timeout: 10s
       retries: 10

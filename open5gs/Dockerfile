@@ -11,6 +11,7 @@ RUN apt-get update && \
         flex \
         bison \
         git \
+        cmake \
         meson \
         libsctp-dev \
         libgnutls28-dev \
@@ -25,6 +26,7 @@ RUN apt-get update && \
         libnghttp2-dev \
         libtins-dev \
         libtalloc-dev \
+        libc-ares-dev \
         iproute2 \
         ca-certificates \
         netbase \

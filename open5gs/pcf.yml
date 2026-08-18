@@ -1,8 +1,15 @@
 db_uri: mongodb://mongodb/open5gs
+logger:
+  level: debug
 pcf:
   sbi:
-    - name: open5gs-pcf
-      advertise: open5gs-pcf
-nrf:
-  sbi:
-    - name: open5gs-nrf
+    server:
+      - address: 10.0.0.8
+        port: 80
+    client:
+      nrf:
+        - uri: http://10.0.0.4:80
+  metrics:
+    server:
+      - address: 10.0.0.8
+        port: 9090
