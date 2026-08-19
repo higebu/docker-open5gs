@@ -1,5 +1,7 @@
 FROM ubuntu:jammy
 
+ARG OPEN5GS_VERSION=v2.8.0
+
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y --no-install-recommends \
@@ -38,8 +40,7 @@ RUN apt-get update && \
         tcpdump
 
 WORKDIR /
-ADD https://api.github.com/repos/open5gs/open5gs/git/refs/heads/main version.json
-RUN git clone https://github.com/open5gs/open5gs.git && \
+RUN git clone --depth 1 --branch ${OPEN5GS_VERSION} https://github.com/open5gs/open5gs.git && \
     cd open5gs && \
     meson build && ninja -C build install && \
     cd .. && rm -rf open5gs && \

@@ -1,13 +1,14 @@
 FROM node:19
 
+ARG OPEN5GS_VERSION=v2.8.0
+
 WORKDIR /usr/src/
-ADD https://api.github.com/repos/open5gs/open5gs/git/refs/heads/main version.json
-RUN git clone https://github.com/open5gs/open5gs.git && \
+RUN git clone --depth 1 --branch ${OPEN5GS_VERSION} https://github.com/open5gs/open5gs.git && \
     cd open5gs/webui && \
     npm install && \
     npm run build
 
 WORKDIR /usr/src/open5gs/webui
-CMD npm run dev
+CMD ["npm", "run", "start"]
 
-EXPOSE 3000
+EXPOSE 9999
